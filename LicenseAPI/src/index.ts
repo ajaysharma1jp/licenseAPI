@@ -1,6 +1,8 @@
-import express, { type Request, type Response} from 'express';
+import express, { raw, type Request, type Response} from 'express';
 import { Pool } from 'pg';
 import dotenv from 'dotenv';
+import crypto from 'crypto';
+import { error } from 'console';
 
 // loads secret variables from the .env files
 dotenv.config();
@@ -12,30 +14,118 @@ const port = process.env.PORT || 3000;
 app.use(express.json());
 
 const pool = new Pool({
-    connectionString: process.env.database_url,
-});
-
-// a simple route to test if server is running
-app.get('/',(req: Request, res: Response) => {
-    res.send("License & Telemetry API is running!");
-    res.send("FAAH!");
-});
-
-// a route to test the database connection
-app.get('/test-db', async (req: Request, res: Response)=>{
-    try{
-        const result = await pool.query('SELECT NOW()');
-        res.json({
-            message: "Successfully connected to Azure PostgreSQL!",
-            serverTime: result.rows[0].now
-        });
-    }catch(error){
-        console.log(error);
-        res.status(500).json({ error: 'Database connection failed' });
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    host: process.env.DB_HOST,
+    port: Number(process.env.DB_PORT) || 5432,
+    database: process.env.DB_NAME,
+    ssl:{
+        rejectUnauthorized: false
     }
 });
 
-// Start the Server
-app.listen(port, ()=>{
-    console.log('Server is running at http://localhost:${port}');
+// health check
+app.get('/', (req: Request, res: Response) => {
+  res.send('License & Telemetry API is running!');
+});
+
+app.get('/test-db', async (req: Request, res: Response) => {
+  try {
+    const result = await pool.query('SELECT NOW()');
+    res.json({ 
+      message: 'Successfully connected to Azure PostgreSQL!', 
+      serverTime: result.rows[0].now 
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Database connection failed' });
+  }
+});
+
+// 2. Endpoint: Generate a new License Key
+app.post('/api/licenses/generate', async (req: Request, res: Response) => {
+  try {
+    // Generates a formatted key like: XXXX-XXXX-XXXX-XXXX
+    const rawKey = crypto.randomBytes(8).toString('hex').toUpperCase();
+    const licenseKey = `${rawKey.slice(0,4)}-${rawKey.slice(4,8)}-${rawKey.slice(8,12)}-${rawKey.slice(12,16)}`;
+
+    const query = `
+      INSERT INTO licenses (license_key, is_active)
+      VALUES ($1, true)
+      RETURNING *;
+    `;
+    const result = await pool.query(query, [licenseKey]);
+
+    res.status(201).json({
+      message: 'License key created successfully',
+      license: result.rows[0]
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to generate license key' });
+  }
+});
+
+// 3. Endpoint: Validate a License Key
+app.get('/api/licenses/validate/:key', async (req: Request, res: Response) => {
+  try {
+    const { key } = req.params;
+    const query = `SELECT * FROM licenses WHERE license_key = $1;`;
+    const result = await pool.query(query, [key]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ valid: false, message: 'License key not found' });
+    }
+
+    const license = result.rows[0];
+
+    if (!license.is_active) {
+      return res.json({ valid: false, message: 'License key is inactive' });
+    }
+
+    res.json({ valid: true, message: 'License key is active', license });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Validation failed' });
+  }
+});
+
+// 4. Endpoint: Record Telemetry Ping
+app.post('/api/telemetry', async (req: Request, res: Response) => {
+  try {
+    const { licenseKey, osVersion } = req.body;
+
+    if (!licenseKey || !osVersion) {
+      return res.status(400).json({ error: 'licenseKey and osVersion are required' });
+    }
+
+    // Lookup the internal license ID
+    const licenseRes = await pool.query('SELECT id FROM licenses WHERE license_key = $1', [licenseKey]);
+    
+    if (licenseRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Invalid license key' });
+    }
+
+    const licenseId = licenseRes.rows[0].id;
+
+    // Insert telemetry entry linked to license ID
+    const insertQuery = `
+      INSERT INTO telemetry_logs (license_id, os_version)
+      VALUES ($1, $2)
+      RETURNING *;
+    `;
+    const result = await pool.query(insertQuery, [licenseId, osVersion]);
+
+    res.status(201).json({
+      message: 'Telemetry logged successfully',
+      log: result.rows[0]
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to record telemetry' });
+  }
+});
+
+app.listen(port, () => {
+  console.log(`Server is running at http://localhost:${port}`);
 });
