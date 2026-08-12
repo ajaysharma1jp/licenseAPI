@@ -8,7 +8,7 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3000;
 
-// this allow your API ti accept json data in request
+// this allow your API to accept json data in request
 app.use(express.json());
 
 const pool = new Pool({
@@ -37,5 +37,5 @@ app.get('/test-db', async (req: Request, res: Response)=>{
 
 // Start the Server
 app.listen(port, ()=>{
-    console.log('Server is running at https://localhost:${port}');
+    console.log('Server is running at http://localhost:${port}');
 });
