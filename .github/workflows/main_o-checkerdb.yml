@@ -25,6 +25,7 @@ jobs:
 
       - name: npm install, build, and test
         run: |
+          cd LicenseAPI
           npm install
           npm run build --if-present
           npm run test --if-present
@@ -61,5 +62,5 @@ jobs:
         with:
           app-name: 'o-checkerdb'
           slot-name: 'Production'
-          package: .
+          package: './LicenseAPI'
           
