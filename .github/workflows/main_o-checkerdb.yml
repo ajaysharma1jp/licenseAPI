@@ -62,5 +62,5 @@ jobs:
         with:
           app-name: 'o-checkerdb'
           slot-name: 'Production'
-          package: .
+          package: './LicenseAPI'
           
