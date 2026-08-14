@@ -126,6 +126,30 @@ app.post('/api/telemetry', async (req: Request, res: Response) => {
   }
 });
 
+// license verification endpoint
+app.post('/api/verify-license', async(req: Request, res: Response) => {
+    try{
+        const {licenseKey, hardwareID} = req.body;
+        if(!licenseKey){
+            return res.status(400).json({valid: false, error: "License Key Required!"});
+
+            // standard postgreSql paramaterized query to prevent SQL injection
+            const query = `SELECT * FROM licenses WHERE key = $1 AND is_active = true`;
+
+            const result = await pool.query(query,[licenseKey]);
+
+            if(result.rows.length>0){
+                res.status(200).json({valid: true, message: "License Verified Successfully"});
+            }else{
+                res.status(403).json({valid: false, error: "Invalid Or Expired License"});
+            }
+        }
+    }catch(error){
+        console.error(error);
+        res.status(500).json({ error: 'Failed to Verify-License'});
+    }
+});
+
 app.listen(port, () => {
   console.log(`Server is running at http://localhost:${port}`);
 });
