@@ -19,15 +19,15 @@ export class CryptoService{
             throw new Error("CRITICAL: Private Key is missing from environment variables!");
         }
 
-        // create signing object using SHA256
-        const sign = crypto.createSign('SHA256');
+        // create (signer) a signing object using SHA256
+        const signer = crypto.createSign('SHA256');
 
         // feed payload string into algo SHA256
-        sign.update(payloadString);
-        sign.end();
+        signer.update(payloadString);
+        signer.end();
 
         // encrypt hash using private key and output it in base64
-        const signature = sign.sign(privateKey,'base64');
+        const signature = signer.sign(privateKey,'base64');
 
         // return both raw data and mathematical proof
         return {

@@ -1,5 +1,5 @@
 import { type Request, type Response } from 'express';
-import {CryptoService} from '../services/cryptoService';
+import { CryptoService } from '../services/cryptoService.js';
 
 export const verifyLicense = async (req: Request, res: Response) => {
     try{
@@ -14,7 +14,7 @@ export const verifyLicense = async (req: Request, res: Response) => {
         const expDate = "2027-01-01T00:00:00Z";
 
         // handover to cryptoService for sign of raw data
-        const signedResponse = CryptoService.signLicensePayload(
+        const signedResponse = CryptoService.signPayload(
             licenseKey,
             hardwareID,
             isValid,
