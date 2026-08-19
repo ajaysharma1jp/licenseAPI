@@ -1,8 +1,9 @@
 import express, { raw, type Request, type Response} from 'express';
-import { Pool } from 'pg';
+import { pool } from './config/db.js';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
 import { error } from 'console';
+import licenseRoutes from './routes/licenseRoutes.js';
 
 // loads secret variables from the .env files
 dotenv.config();
@@ -13,16 +14,8 @@ const port = process.env.PORT || 3000;
 // this allow your API to accept json data in request
 app.use(express.json());
 
-const pool = new Pool({
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    host: process.env.DB_HOST,
-    port: Number(process.env.DB_PORT) || 5432,
-    database: process.env.DB_NAME,
-    ssl:{
-        rejectUnauthorized: false
-    }
-});
+// mount routes -> full url : https://your-site.com/api/verify-license
+app.use('/api',licenseRoutes);
 
 // health check
 app.get('/', (req: Request, res: Response) => {
@@ -124,30 +117,6 @@ app.post('/api/telemetry', async (req: Request, res: Response) => {
     console.error(error);
     res.status(500).json({ error: 'Failed to record telemetry' });
   }
-});
-
-// license verification endpoint
-app.post('/api/verify-license', async(req: Request, res: Response) => {
-    try{
-        const {licenseKey, hardwareID} = req.body;
-        if(!licenseKey){
-            return res.status(400).json({valid: false, error: "License Key Required!"});
-
-            // standard postgreSql paramaterized query to prevent SQL injection
-            const query = `SELECT * FROM licenses WHERE key = $1 AND is_active = true`;
-
-            const result = await pool.query(query,[licenseKey]);
-
-            if(result.rows.length>0){
-                res.status(200).json({valid: true, message: "License Verified Successfully"});
-            }else{
-                res.status(403).json({valid: false, error: "Invalid Or Expired License"});
-            }
-        }
-    }catch(error){
-        console.error(error);
-        res.status(500).json({ error: 'Failed to Verify-License'});
-    }
 });
 
 app.listen(port, () => {
