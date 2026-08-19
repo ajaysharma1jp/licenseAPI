@@ -35,53 +35,6 @@ app.get('/test-db', async (req: Request, res: Response) => {
   }
 });
 
-// 2. Endpoint: Generate a new License Key
-app.post('/api/licenses/generate', async (req: Request, res: Response) => {
-  try {
-    // Generates a formatted key like: XXXX-XXXX-XXXX-XXXX
-    const rawKey = crypto.randomBytes(8).toString('hex').toUpperCase();
-    const licenseKey = `${rawKey.slice(0,4)}-${rawKey.slice(4,8)}-${rawKey.slice(8,12)}-${rawKey.slice(12,16)}`;
-
-    const query = `
-      INSERT INTO licenses (license_key, is_active)
-      VALUES ($1, true)
-      RETURNING *;
-    `;
-    const result = await pool.query(query, [licenseKey]);
-
-    res.status(201).json({
-      message: 'License key created successfully',
-      license: result.rows[0]
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to generate license key' });
-  }
-});
-
-// 3. Endpoint: Validate a License Key
-app.get('/api/licenses/validate/:key', async (req: Request, res: Response) => {
-  try {
-    const { key } = req.params;
-    const query = `SELECT * FROM licenses WHERE license_key = $1;`;
-    const result = await pool.query(query, [key]);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ valid: false, message: 'License key not found' });
-    }
-
-    const license = result.rows[0];
-
-    if (!license.is_active) {
-      return res.json({ valid: false, message: 'License key is inactive' });
-    }
-
-    res.json({ valid: true, message: 'License key is active', license });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Validation failed' });
-  }
-});
 
 // 4. Endpoint: Record Telemetry Ping
 app.post('/api/telemetry', async (req: Request, res: Response) => {
