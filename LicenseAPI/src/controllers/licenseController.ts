@@ -41,7 +41,7 @@ export const verifyLicense = async (req: Request, res: Response) => {
 export const generateLicense = async (req: Request, res: Response) => {
     try{
         const rawKey = crypto.randomBytes(8).toString('hex').toUpperCase();
-        const licenseKey = `${rawKey.slice(0-4)}-${rawKey.slice(4,8)}-${rawKey.slice(8,12)}-${rawKey.slice(12,16)}`;
+        const licenseKey = `${rawKey.slice(0,4)}-${rawKey.slice(4,8)}-${rawKey.slice(8,12)}-${rawKey.slice(12,16)}`;
 
         const query = `
           INSERT INTO licenses (license_key, is_active)
